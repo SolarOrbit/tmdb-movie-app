@@ -1,35 +1,44 @@
 // pages/api/movies.js
 export default async function handler(req, res) {
+  const { page = 1 } = req.query; // 기본값을 1로 설정하고, req.query에서 직접 가져옴
   const TMDB_API_KEY = process.env.TMDB_API_KEY;
-  const page = req.query.page || 1;
 
-  // --- 디버깅 로그 추가 ---
-  console.log('[API Route] TMDB_API_KEY from process.env:', TMDB_API_KEY); // 1. API 키가 제대로 로드되는지 확인
+  console.log(`[API_ROUTE] Request received for /api/movies. Requested page: ${page}`);
+
+  if (!TMDB_API_KEY) {
+    console.error('[API_ROUTE] CRITICAL: TMDB_API_KEY is not set in environment variables.');
+    return res.status(500).json({ message: 'Server configuration error: TMDB API Key not found.' });
+  }
+  // console.log('[API_ROUTE] TMDB_API_KEY successfully loaded from environment variables.'); // 너무 자주 로깅될 수 있어 주석 처리 또는 필요시 활성화
 
   const tmdbURL = `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=ko-KR&page=${page}`;
-  console.log('[API Route] Requesting URL:', tmdbURL); // 2. TMDB로 요청할 전체 URL 확인
+  console.log(`[API_ROUTE] Preparing to call TMDB API. URL: ${tmdbURL}`);
 
   try {
-    const response = await fetch(tmdbURL);
+    const tmdbResponse = await fetch(tmdbURL);
+    console.log(`[API_ROUTE] TMDB API call completed. Response status: ${tmdbResponse.status}`);
 
-    console.log('[API Route] TMDB Response Status:', response.status); // 3. TMDB 응답 상태 코드 확인
-
-    if (!response.ok) {
-      const errorBody = await response.text(); // TMDB의 상세 에러 메시지를 텍스트로 받아옵니다.
-      console.error('[API Route] TMDB API Error Body:', errorBody); // 4. TMDB 에러 본문 확인
-      throw new Error(
-        `TMDB API error: ${response.status} - ${response.statusText}. Response from TMDB: ${errorBody}`
-      );
+    if (!tmdbResponse.ok) {
+      const errorBody = await tmdbResponse.text();
+      console.error(`[API_ROUTE] Error response from TMDB API. Status: ${tmdbResponse.status}, Body: ${errorBody}`);
+      // 클라이언트에게 너무 상세한 TMDB 오류를 직접 노출하지 않도록 일반적인 메시지로 응답할 수 있습니다.
+      // 하지만 디버깅을 위해 여기서는 상세 내용을 포함합니다.
+      return res.status(tmdbResponse.status).json({
+        message: `Failed to fetch data from TMDB. Status: ${tmdbResponse.status}`,
+        tmdb_error: errorBody,
+      });
     }
 
-    const data = await response.json();
+    const data = await tmdbResponse.json();
+    console.log(`[API_ROUTE] Successfully fetched and parsed data from TMDB. Number of movies: ${data.results ? data.results.length : 0}`);
+
     res.status(200).json(data);
+    console.log(`[API_ROUTE] Successfully sent ${data.results ? data.results.length : 0} movies to the client.`);
   } catch (error) {
-    console.error('[API Route] Catch block error:', error); // 5. 최종 에러 확인
+    console.error(`[API_ROUTE] Internal error in /api/movies handler: ${error.message}`, error);
     res.status(500).json({
-        message: 'Error fetching data from TMDB',
-        errorDetails: error.message, // 에러 상세 내용을 클라이언트에도 전달 (디버깅용)
-        apiKeyUsed: TMDB_API_KEY ? 'Key Present (see server logs for value)' : 'Key NOT Present'
+        message: 'Internal server error while processing movie data.',
+        errorDetails: error.message // 개발 중에는 상세 내용을 보내는 것이 유용
     });
   }
 }

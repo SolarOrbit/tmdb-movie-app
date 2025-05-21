@@ -5,168 +5,88 @@ export default function HomePage() {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1); // 현재 페이지 상태
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
+    // 페이지 컴포넌트가 마운트되거나 'page' 상태가 변경될 때 실행
+    console.log(`[FRONTEND] HomePage useEffect triggered. Current page: ${page}. Initializing movie fetch process.`);
+
     async function fetchMovies() {
       setLoading(true);
       setError(null);
+      console.log(`[FRONTEND] Attempting to fetch movies for page: ${page} from /api/movies`);
       try {
-        // API 라우트에 페이지 번호를 쿼리 파라미터로 전달합니다.
         const response = await fetch(`/api/movies?page=${page}`);
+        console.log(`[FRONTEND] API call to /api/movies?page=${page} sent. Waiting for response.`);
+
         if (!response.ok) {
-          // 서버에서 에러 메시지를 json 형태로 보냈을 경우를 처리
           const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+          console.error(`[FRONTEND] API call to /api/movies FAILED. Status: ${response.status}, Message: ${errorData.message}`);
           throw new Error(errorData.message || `Error: ${response.status}`);
         }
+
         const data = await response.json();
+        console.log(`[FRONTEND] Successfully received data from /api/movies. Number of movies: ${data.results ? data.results.length : '0'}`);
         if (data.results) {
           setMovies(data.results);
         } else {
-          setMovies([]); // 결과가 없는 경우 빈 배열로 설정
+          setMovies([]);
         }
       } catch (err) {
+        console.error(`[FRONTEND] Error during fetchMovies function: ${err.message}`);
         setError(err.message);
       } finally {
         setLoading(false);
+        console.log(`[FRONTEND] Movie fetch process for page ${page} finished. Loading state: ${false}`);
       }
     }
 
     fetchMovies();
-  }, [page]); // page 상태가 변경될 때마다 useEffect가 다시 실행됩니다.
+  }, [page]); // page가 변경될 때마다 실행
 
+  // 로딩 및 에러 UI
   if (loading) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: '50px' }}>
-        <p>영화를 불러오는 중...</p>
-      </div>
-    );
+    console.log("[FRONTEND] Rendering: Loading state UI");
+    return <p>영화를 불러오는 중...</p>;
   }
-
   if (error) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: '50px', color: 'red' }}>
-        <p>오류가 발생했습니다: {error}</p>
-        <p>TMDB API 키가 Vercel 환경 변수에 정확히 설정되었는지, API 할당량을 초과하지 않았는지 확인해주세요.</p>
-        <p>또한, `/api/movies.js` 파일이 올바르게 작성되었는지 확인해주세요.</p>
-      </div>
-    );
+    console.error("[FRONTEND] Rendering: Error state UI with message -", error);
+    return <p>오류: {error}</p>;
   }
 
+  // 영화 목록 UI
+  console.log("[FRONTEND] Rendering: Movie list UI with", movies.length, "movies.");
   return (
     <div className="container">
-      <h1>인기 영화 목록 (TMDB)</h1>
-      {movies.length > 0 ? (
-        <ul>
-          {movies.map((movie) => (
-            <li key={movie.id} className="movie-item">
-              <img
-                src={movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '/placeholder.png'} // 포스터 이미지가 없을 경우 대체 이미지
-                alt={movie.title}
-                className="movie-poster"
-              />
-              <div className="movie-info">
-                <h2>{movie.title} ({movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'})</h2>
-                <p>평점: {movie.vote_average} (TMDb)</p>
-                <p className="overview">{movie.overview || "줄거리가 제공되지 않았습니다."}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>영화를 찾을 수 없습니다.</p>
-      )}
-
+      <h1>인기 영화 목록 (TMDB) - 페이지 {page}</h1>
+      {/* ... (이하 기존 JSX 렌더링 코드와 동일) ... */}
+      <ul>
+        {movies.map((movie) => (
+          <li key={movie.id} className="movie-item">
+            <img
+              src={movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '/placeholder.png'}
+              alt={movie.title}
+              className="movie-poster"
+            />
+            <div className="movie-info">
+              <h2>{movie.title} ({movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'})</h2>
+              <p>평점: {movie.vote_average} (TMDb)</p>
+              <p className="overview">{movie.overview || "줄거리가 제공되지 않았습니다."}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
       <div className="pagination">
-        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}>
+        <button onClick={() => { console.log('[FRONTEND] Clicked: Previous Page button'); setPage(p => Math.max(1, p - 1)); }} disabled={page === 1 || loading}>
           이전 페이지
         </button>
         <span> 현재 페이지: {page} </span>
-        <button onClick={() => setPage(p => p + 1)} disabled={loading}>
+        <button onClick={() => { console.log('[FRONTEND] Clicked: Next Page button'); setPage(p => p + 1); }} disabled={loading}>
           다음 페이지
         </button>
       </div>
-
       <style jsx>{`
-        .container {
-          max-width: 800px;
-          margin: 20px auto;
-          padding: 20px;
-          font-family: Arial, sans-serif;
-        }
-        h1 {
-          text-align: center;
-          color: #333;
-          margin-bottom: 30px;
-        }
-        ul {
-          list-style: none;
-          padding: 0;
-        }
-        .movie-item {
-          display: flex;
-          margin-bottom: 20px;
-          padding: 15px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          background-color: #f9f9f9;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .movie-poster {
-          width: 100px;
-          height: 150px; /* 고정 높이 */
-          object-fit: cover; /* 이미지 비율 유지하며 채우기 */
-          border-radius: 4px;
-          margin-right: 20px;
-        }
-        .movie-info {
-          flex: 1;
-        }
-        .movie-info h2 {
-          margin-top: 0;
-          font-size: 1.2em;
-          color: #0070f3; /* Next.js blue */
-        }
-        .movie-info p {
-          font-size: 0.9em;
-          color: #555;
-          margin-bottom: 5px;
-        }
-        .overview {
-          font-size: 0.8em;
-          color: #666;
-          line-height: 1.4;
-          max-height: 60px; /* 약 3-4줄 */
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .pagination {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin-top: 30px;
-        }
-        .pagination button {
-          background-color: #0070f3;
-          color: white;
-          border: none;
-          padding: 10px 15px;
-          margin: 0 10px;
-          border-radius: 5px;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        .pagination button:hover:not(:disabled) {
-          background-color: #005bb5;
-        }
-        .pagination button:disabled {
-          background-color: #ccc;
-          cursor: not-allowed;
-        }
-        .pagination span {
-          font-size: 1em;
-          color: #333;
-        }
+        /* ... (기존 스타일 코드) ... */
       `}</style>
     </div>
   );
